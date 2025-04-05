@@ -30,7 +30,7 @@ Install dependencies:
 ```
 gem install httparty
 gem install colorize
-gem install concurrent-ruby.
+gem install concurrent-ruby
 ```
 
 ### Cara Jalankan
