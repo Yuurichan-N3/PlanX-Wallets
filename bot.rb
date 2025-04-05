@@ -2,6 +2,7 @@ require 'httparty'
 require 'time'
 require 'json'
 require 'colorize'
+require 'concurrent'
 
 # URL endpoint
 URL = "https://mpc-api.planx.io/api/v1/telegram/task/claim"
@@ -82,7 +83,11 @@ def process_account(token)
 end
 
 def main
-  print_banner  # Panggil banner di awal main
+  print_banner
+  
+  # Buat thread pool dengan jumlah worker (misalnya 1)
+  pool = Concurrent::ThreadPoolExecutor.new(max_threads: 1)
+  
   loop do
     accounts = load_accounts
     
@@ -91,17 +96,29 @@ def main
       break
     end
     
+    # Proses akun secara paralel
     accounts.each_with_index do |token, idx|
-      timestamp = Time.now.strftime('%Y-%m-%d %H:%M:%S')
-      puts "\n[#{timestamp}] Memproses akun #{idx + 1}/#{accounts.length}".cyan
-      process_account(token)
-      sleep(5)
+      pool.post do
+        timestamp = Time.now.strftime('%Y-%m-%d %H:%M:%S')
+        puts "\n[#{timestamp}] Memproses akun #{idx + 1}/#{accounts.length}".cyan
+        process_account(token)
+      end
     end
+    
+    # Tunggu semua thread selesai sebelum sleep
+    pool.shutdown
+    pool.wait_for_termination
     
     timestamp = Time.now.strftime('%Y-%m-%d %H:%M:%S')
     puts "\n[#{timestamp}] Selesai satu siklus. Menunggu 190 menit...".cyan
     sleep(11400)
+    
+    # Buat pool baru untuk siklus berikutnya
+    pool = Concurrent::ThreadPoolExecutor.new(max_threads: 5)
   end
+  
+  # Pastikan pool ditutup saat keluar dari loop
+  pool.shutdown
 end
 
 if __FILE__ == $0
