@@ -12,7 +12,7 @@ Skrip otomatisasi untuk menyelesaikan tugas harian di PlanX Wallet, tersedia dal
 
 ## Kebutuhan
 
-### Python (`bot.py`)
+Python (`bot.py`)
 
 - Python 3.8+
 - Install dependencies:
@@ -21,7 +21,7 @@ Skrip otomatisasi untuk menyelesaikan tugas harian di PlanX Wallet, tersedia dal
 pip install requests rich
 ```
 
-### Ruby (`bot.rb`)
+Ruby (`bot.rb`)
 
 Ruby 2.7+
 
