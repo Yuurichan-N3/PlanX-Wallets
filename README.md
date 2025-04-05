@@ -31,7 +31,7 @@ Install dependencies:
 gem install json net-http
 ```
 
-Cara Jalankan
+### Cara Jalankan
 
 Python
 
@@ -41,7 +41,7 @@ python bot.py
 
 Akan diminta memasukkan jumlah thread.
 
-### Ruby
+Ruby
 
 ```
 ruby bot.rb
