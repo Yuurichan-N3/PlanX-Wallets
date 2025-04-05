@@ -28,7 +28,8 @@ Ruby 2.7+
 Install dependencies:
 
 ```
-gem install json net-http
+gem install httparty
+gem install colorize
 ```
 
 ### Cara Jalankan
