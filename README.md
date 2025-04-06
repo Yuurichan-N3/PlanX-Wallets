@@ -38,7 +38,7 @@ gem install concurrent-ruby
 Python
 
 ```
-python bot.py
+python bot-proxy.py
 ```
 
 Akan diminta memasukkan jumlah thread.
