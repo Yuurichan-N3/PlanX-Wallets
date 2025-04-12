@@ -18,8 +18,8 @@ BASE_HEADERS = {
 
 # Task IDs yang digunakan cuma Lottery dan claim 3 jam
 TASK_IDS = [
-  "m20250325174288367185100003",
-  "m20250212173934013124700001"
+    "m20250212173934013124700001": "Daily Login",
+    "m20250325174288367185100003": "Lottery"
 ]
 
 def print_banner
@@ -61,10 +61,21 @@ def claim_task(token, task_id)
     )
     
     timestamp = Time.now.strftime('%Y-%m-%d %H:%M:%S')
-    if response.code == 200
-      puts "[#{timestamp}] Berhasil claim task #{task_id} - Response: #{response.body}".cyan
-    else
-      puts "[#{timestamp}] Gagal claim task #{task_id} - Status: #{response.code}".cyan
+    begin
+      body = JSON.parse(response.body)
+      internal_code = body["code"].to_s
+      case internal_code
+      when "200"
+        puts "[#{timestamp}] Sukses claim task #{task_id}".cyan
+      when "406"
+        puts "[#{timestamp}] Belum waktunya claim task #{task_id}".cyan
+      when "1015"
+        puts "[#{timestamp}] Lottery sudah pernah di claim untuk task #{task_id}".cyan
+      else
+        puts "[#{timestamp}] Gagal claim task #{task_id} - Internal Code: #{internal_code}, Message: #{body["msg"]}".cyan
+      end
+    rescue JSON::ParserError
+      puts "[#{timestamp}] Gagal memproses respons server untuk task #{task_id} - Invalid JSON".cyan
     end
   rescue StandardError => e
     timestamp = Time.now.strftime('%Y-%m-%d %H:%M:%S')
@@ -85,7 +96,7 @@ end
 def main
   print_banner
   
-  # Buat thread pool dengan jumlah worker (misalnya 1)
+  # Buat thread pool dengan jumlah worker
   pool = Concurrent::ThreadPoolExecutor.new(max_threads: 1)
   
   loop do
@@ -111,7 +122,7 @@ def main
     
     timestamp = Time.now.strftime('%Y-%m-%d %H:%M:%S')
     puts "\n[#{timestamp}] Selesai satu siklus. Menunggu 190 menit...".cyan
-    sleep(11400)
+    sleep(300)
     
     # Buat pool baru untuk siklus berikutnya
     pool = Concurrent::ThreadPoolExecutor.new(max_threads: 5)
