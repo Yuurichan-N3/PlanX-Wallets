@@ -1,6 +1,6 @@
 # Planx-Bot
 
-**Planx-Bot** adalah skrip Ruby untuk mengotomatiskan tugas-tugas di platform PlanX, seperti login harian, lotre, dan interaksi media sosial (misalnya, mengikuti akun atau membagikan konten). Skrip ini dirancang untuk memproses beberapa akun secara berurutan dengan dukungan proxy opsional untuk menghindari batasan laju. Dibuat untuk tujuan pembelajaran dan pengujian.
+**Planx-Bot** adalah skrip Ruby untuk mengotomatiskan tugas-tugas di platform PlanX, seperti login harian, lotre, dan interaksi media sosial (misalnya, mengikuti akun atau membagikan konten). Skrip ini dirancang untuk memproses beberapa akun secara berurutan dengan dukungan proxy opsional untuk menghindari batasan.
 
 🌟 **Fitur Utama**:
 - Otomatisasi tugas PlanX (Daily Login, Lottery, Follow, Share, dll.).
