@@ -2,6 +2,7 @@ require 'httparty'
 require 'colorize'
 require 'securerandom'
 require 'json'
+require 'uri'
 
 # Banner
 puts <<~BANNER
@@ -79,11 +80,35 @@ def read_proxies
   end
 end
 
-# Function to format proxy for HTTParty
+# Function to parse and format proxy for HTTParty
 def format_proxy(proxy)
   return nil if proxy.nil? || proxy.empty?
+
+  # Tambahkan http:// jika tidak ada protokol
   proxy = "http://#{proxy}" unless proxy.include?('://')
-  { http: proxy, https: proxy }
+
+  begin
+    uri = URI.parse(proxy)
+    unless uri.scheme && uri.host && uri.port
+      puts "Format proxy tidak valid: #{proxy}".red
+      return nil
+    end
+
+    proxy_options = {
+      http_proxyaddr: uri.host,
+      http_proxyport: uri.port
+    }
+
+    # Tambahkan autentikasi jika ada
+    proxy_options[:http_proxyuser] = uri.user if uri.user
+    proxy_options[:http_proxypass] = uri.password if uri.password
+
+    puts "Parsed proxy: #{uri.host}:#{uri.port}#{uri.user ? " (user: #{uri.user})" : ''}".blue
+    proxy_options
+  rescue URI::InvalidURIError => e
+    puts "Error parsing proxy #{proxy}: #{e.message}".red
+    nil
+  end
 end
 
 # Function to make a POST request to /call endpoint
@@ -92,7 +117,9 @@ def call_task(task_id, token, proxy = nil)
   headers = HEADERS.merge('token' => "Bearer #{token}")
   payload = { taskId: task_id }
   options = { headers: headers, body: payload.to_json, decompress: true }
-  options[:http_proxyaddr] = proxy[:http] if proxy
+
+  # Terapkan proxy jika ada
+  options.merge!(proxy) if proxy
 
   begin
     response = HTTParty.post(url, options.merge(timeout: 10))
@@ -115,7 +142,9 @@ def claim_task(task_id, token, proxy = nil, task_list = TASKS)
   headers = HEADERS.merge('token' => "Bearer #{token}")
   payload = { taskId: task_id }
   options = { headers: headers, body: payload.to_json, decompress: true }
-  options[:http_proxyaddr] = proxy[:http] if proxy
+
+  # Terapkan proxy jika ada
+  options.merge!(proxy) if proxy
 
   begin
     response = HTTParty.post(url, options.merge(timeout: 10))
@@ -157,9 +186,9 @@ def main
     tokens.each_with_index do |token, i|
       puts "\nAkun #{i + 1}: Memulai...".yellow
 
-      # Pilih proxy secara bergilir (jika ada)
-      proxy = proxies.any? ? format_proxy(proxies[i % proxies.size]) : nil
-      puts "Akun #{i + 1}: Menggunakan proxy #{proxy[:http]}" if proxy
+      # Pilih proxy secara acak (jika ada)
+      proxy = proxies.any? ? format_proxy(proxies.sample) : nil
+      puts "Akun #{i + 1}: Menggunakan proxy #{proxy[:http_proxyaddr]}:#{proxy[:http_proxyport]}" if proxy
 
       if iteration == 1
         # Iterasi pertama: Proses tugas dengan call (kecuali Daily Login & Lottery), lalu claim semua
