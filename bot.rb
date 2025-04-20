@@ -209,10 +209,10 @@ def main
         puts "Akun #{username}: Memproses CALL tasks...".yellow
         CALL_TASKS.each do |task_id, _|
           call_task(task_id, token, proxy)
-          sleep 3
+          sleep 5
         end
 
-        puts "Akun #{username}: Menunggu 150 detik sebelum CLAIM...".yellow
+        puts "Akun #{username}: Menunggu 155 detik sebelum CLAIM...".yellow
         sleep 155
 
         puts "Akun #{username}: Memproses CLAIM tasks...".yellow
@@ -225,7 +225,7 @@ def main
         puts "Akun #{username}: Memproses CLAIM tasks (Daily Login & Lottery)...".yellow
         CLAIM_ONLY_TASKS.each do |task_id, _|
           claim_task(task_id, token, proxy, CLAIM_ONLY_TASKS)
-          sleep 2
+          sleep 5
         end
       end
 
