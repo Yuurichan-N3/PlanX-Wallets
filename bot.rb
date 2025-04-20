@@ -3,6 +3,7 @@ require 'colorize'
 require 'securerandom'
 require 'json'
 require 'uri'
+require 'jwt'
 
 # Banner
 puts <<~BANNER
@@ -57,6 +58,17 @@ HEADERS = {
   'sec-fetch-site' => 'same-site',
   'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0'
 }
+
+# Function to decode JWT token and extract username
+def decode_token(token)
+  begin
+    decoded = JWT.decode(token, nil, false) # Dekode tanpa verifikasi
+    decoded[0]['username'] || 'Unknown'
+  rescue StandardError => e
+    puts "Error dekode token: #{e.message}".red
+    'Unknown'
+  end
+end
 
 # Function to read tokens from data.txt
 def read_tokens
@@ -184,40 +196,42 @@ def main
 
     # Step 3: Process each account sequentially
     tokens.each_with_index do |token, i|
-      puts "\nAkun #{i + 1}: Memulai...".yellow
+      # Decode token untuk mendapatkan username
+      username = decode_token(token)
+      puts "\nAkun #{username}: Memulai...".yellow
 
       # Pilih proxy secara acak (jika ada)
       proxy = proxies.any? ? format_proxy(proxies.sample) : nil
-      puts "Akun #{i + 1}: Menggunakan proxy #{proxy[:http_proxyaddr]}:#{proxy[:http_proxyport]}" if proxy
+      puts "Akun #{username}: Menggunakan proxy #{proxy[:http_proxyaddr]}:#{proxy[:http_proxyport]}" if proxy
 
       if iteration == 1
         # Iterasi pertama: Proses tugas dengan call (kecuali Daily Login & Lottery), lalu claim semua
-        puts "Akun #{i + 1}: Memproses CALL tasks...".yellow
+        puts "Akun #{username}: Memproses CALL tasks...".yellow
         CALL_TASKS.each do |task_id, _|
           call_task(task_id, token, proxy)
           sleep 3
         end
 
-        puts "Akun #{i + 1}: Menunggu 10 detik sebelum CLAIM...".yellow
-        sleep 10
+        puts "Akun #{username}: Menunggu 150 detik sebelum CLAIM...".yellow
+        sleep 155
 
-        puts "Akun #{i + 1}: Memproses CLAIM tasks...".yellow
+        puts "Akun #{username}: Memproses CLAIM tasks...".yellow
         TASKS.each do |task_id, _|
           claim_task(task_id, token, proxy)
-          sleep 3
+          sleep 1
         end
       else
         # Iterasi berikutnya: Hanya claim Daily Login dan Lottery
-        puts "Akun #{i + 1}: Memproses CLAIM tasks (Daily Login & Lottery)...".yellow
+        puts "Akun #{username}: Memproses CLAIM tasks (Daily Login & Lottery)...".yellow
         CLAIM_ONLY_TASKS.each do |task_id, _|
           claim_task(task_id, token, proxy, CLAIM_ONLY_TASKS)
-          sleep 3
+          sleep 2
         end
       end
 
       # Delay before next account
       if i < tokens.size - 1
-        puts "Akun #{i + 1}: Selesai. Menunggu 30 detik sebelum akun berikutnya...".yellow
+        puts "Akun #{username}: Selesai. Menunggu 30 detik sebelum akun berikutnya...".yellow
         sleep 2
       end
     end
