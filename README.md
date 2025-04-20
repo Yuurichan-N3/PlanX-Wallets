@@ -43,6 +43,7 @@
    gem install httparty
    gem install colorize
    gem install json
+   gem install jwt
    ```
 
 3. **Clone Repositori**:
