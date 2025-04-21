@@ -48,8 +48,8 @@
 
 3. **Clone Repositori**:
    ```bash
-   git clone https://github.com/Yuurichan-N3/Planx-Bot.git
-   cd Planx-Bot
+   git clone https://github.com/Yuurichan-N3/Planx-Wallets.git
+   cd Planx-Wallets
    ```
 
 4. **Siapkan File Konfigurasi**:
