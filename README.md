@@ -45,14 +45,19 @@
    gem install json
    gem install jwt
    ```
+   **Install Dependensi JS**:
+   install module:
+   ```bash
+   npm install
+   ```
 
-3. **Clone Repositori**:
+4. **Clone Repositori**:
    ```bash
    git clone https://github.com/Yuurichan-N3/Planx-Wallets.git
    cd Planx-Wallets
    ```
 
-4. **Siapkan File Konfigurasi**:
+5. **Siapkan File Konfigurasi**:
    - Buat file `data.txt` dan masukkan token PlanX (satu per baris). Contoh:
      ```
      eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -66,12 +71,17 @@
 
 ## Penggunaan
 
-1. **Jalankan Skrip**:
+1. **Jalankan Skrip Ruby**:
    ```bash
    ruby bot.rb
    ```
+   
+   **Jalankan Skrip JS**:
+   ```bash
+   node bot.js
+   ```
 
-2. **Apa yang Akan Terjadi**:
+3. **Apa yang Akan Terjadi**:
    - Skrip akan membaca token dari `data.txt` dan proxy (jika ada) dari `proxy.txt`.
    - Pada iterasi pertama, skrip akan:
      - Memproses tugas "call" (misalnya, bergabung ke komunitas, mengikuti akun).
@@ -82,7 +92,7 @@
      - 🔴 `Task [nama] gagal`
    - Tekan `Ctrl+C` untuk menghentikan skrip.
 
-3. **Catatan**:
+4. **Catatan**:
    - Pastikan token di `data.txt` valid dan tidak kadaluarsa.
    - Gunakan proxy di `proxy.txt` jika mendapat error batasan laju (misalnya, Cloudflare 1015).
    - Skrip berjalan terus-menerus dengan delay 3 jam antar iterasi.
