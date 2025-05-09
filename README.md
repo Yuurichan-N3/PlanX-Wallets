@@ -76,9 +76,13 @@
    ruby bot.rb
    ```
    
+   ```bash
+   ruby Withdrawal.rb
+   ```
+   
    **Jalankan Skrip JS**:
    ```bash
-   node bot.js
+   node quest.js
    ```
 
 3. **Apa yang Akan Terjadi**:
