@@ -18,9 +18,12 @@ BANNER
 TASKS = {
   "m20250212173934013124700001" => "Daily Login",
   "m20250325174288367185100003" => "Lottery",
+  "m20250515174730236703400006" => "Start Rolling - Play DiceSwap & Win TON",
+  "m20250515174729364086600003" => "Launch TapCoinsBot",
   "m20250513174712786995700006" => "Play Miner to win $300",
   "m20250513174712489462800003" => "Let's earn $WTON and WONTON collections together",
   "m20250424174548205765500003" => "Earn USDT Daily",
+  "m20250212173935146770000006" => "Create Wallet",
   "m20250507174660749235200006" => "Visit the PlanX Official Website",
   "m20250507174659651577000003" => "Play Startai, Claim 100 USDT",
   "m20250505174642807898300003" => "Play Simple and get $SMPL",
