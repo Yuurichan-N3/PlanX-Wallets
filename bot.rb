@@ -18,6 +18,7 @@ BANNER
 TASKS = {
   "m20250212173934013124700001" => "Daily Login",
   "m20250325174288367185100003" => "Lottery",
+  "m20250516174736524661500009" => "Mine for free and win $300",
   "m20250515174730236703400006" => "Start Rolling - Play DiceSwap & Win TON",
   "m20250515174729364086600003" => "Launch TapCoinsBot",
   "m20250513174712786995700006" => "Play Miner to win $300",
