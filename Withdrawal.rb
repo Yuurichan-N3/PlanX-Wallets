@@ -1,123 +1,255 @@
 require 'httparty'
-require 'jwt'
-require 'json'
 require 'colorize'
+require 'securerandom'
+require 'json'
+require 'uri'
+require 'jwt'
 
-# URL Endpoint
-URL = "https://mpc-api.planx.io/api/v1/telegram/withdrawal"
+# Banner
+puts <<~BANNER
+╔══════════════════════════════════════════════╗
+║       🌟 PlanX TaskBot - Automated Tasks     ║
+║   Automate your PlanX account tasks!         ║
+║  Developed by: https://t.me/sentineldiscus   ║
+╚══════════════════════════════════════════════╝
+BANNER
 
-# Header
-HEADERS = {
-  "accept" => "application/json, text/plain, */*",
-  "accept-encoding" => "gzip, deflate, br, zstd",
-  "accept-language" => "id-ID,id;q=0.9,ja-ID;q=0.8,ja;q=0.7,en-ID;q=0.6,en;q=0.5,en-US;q=0.4",
-  "content-type" => "application/json",
-  "language" => "id",
-  "origin" => "https://tg-wallet.planx.io",
-  "priority" => "u=1, i",
-  "referer" => "https://tg-wallet.planx.io/",
-  "sec-ch-ua" => '"Chromium";v="130", "Mises";v="130", "Not?A_Brand";v="99"',
-  "sec-ch-ua-mobile" => "?1",
-  "sec-ch-ua-platform" => '"Android"',
-  "sec-fetch-dest" => "empty",
-  "sec-fetch-mode" => "cors",
-  "sec-fetch-site" => "same-site",
-  "user-agent" => "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
+# List of all task IDs and their descriptions
+TASKS = {
+  "m20250212173934013124700001" => "Daily Login",
+  "m20250325174288367185100003" => "Lottery",
+  "m20250516174736524661500009" => "Mine for free and win $300",
+  "m20250212173935146770000006" => "Create Wallet",
+  "m20250515174730236703400006" => "Start Rolling - Play DiceSwap & Win TON",
+  "m20250515174729364086600003" => "Launch TapCoinsBot",
+  "m20250513174712786995700006" => "Play Miner to win $300",
+  "m20250513174712489462800003" => "Let's earn $WTON and WONTON collections together",
+  "m20250424174548205765500003" => "Earn USDT Daily",
+  "m20250507174660749235200006" => "Visit the PlanX Official Website",
+  "m20250507174659651577000003" => "Play Startai, Claim 100 USDT",
+  "m20250505174642807898300003" => "Play Simple and get $SMPL",
+  "m20250212173935519374200019" => "Join the PlanX Community",
+  "m20250212173935571986800022" => "Join the PlanX Channel",
+  "m20250212173935594680500028" => "Follow PlanX on X",
+  "m20250212173935584402900025" => "Join the PlanX Discord",
+  "m20250212173935604389100031" => "Follow PlanX on TikTok",
+  "m20250212173935613755700034" => "Follow PlanX on YouTube",
+  "m20250214173952165258600005" => "Repost a PlanX'post on X",
+  "m20250213173941632390600015" => "Comment a PlanX'post on X",
+  "m20250213173941720460300018" => "Like a PlanX'post on X",
+  "m20250214173952169399300006" => "Quote a PlanX' post and tag 3 of friends on X",
+  "m20250213173941728955700021" => "Share the PlanX video from YouTube to X",
+  "m20250213173941736560000024" => "Share the PlanX video from TikTok to X",
+  "m20250213173941767785900027" => "Read the PlanX Medium article"
 }
 
-# Payload
-PAYLOAD = { withdrawalType: 1 }
+# Tasks to claim only (Daily Login and Lottery)
+CLAIM_ONLY_TASKS = {
+  "m20250212173934013124700001" => "Daily Login",
+  "m20250325174288367185100003" => "Lottery"
+}
 
-def read_tokens(file_path)
+# Tasks to process with call and claim in first iteration
+CALL_TASKS = TASKS.reject { |k, _| CLAIM_ONLY_TASKS.key?(k) }
+
+# Headers for the API requests
+HEADERS = {
+  'accept' => 'application/json, text/plain, */*',
+  'accept-encoding' => 'gzip, deflate, br, zstd',
+  'content-type' => 'application/json',
+  'language' => 'id',
+  'origin' => 'https://tg-wallet.planx.io',
+  'referer' => 'https://tg-wallet.planx.io/',
+  'sec-ch-ua' => '"Microsoft Edge";v="135", "Chromium";v="135", "Not-A.Brand";v="8"',
+  'sec-ch-ua-mobile' => '?0',
+  'sec-ch-ua-platform' => '"Windows"',
+  'sec-fetch-dest' => 'empty',
+  'sec-fetch-mode' => 'cors',
+  'sec-fetch-site' => 'same-site',
+  'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0'
+}
+
+# Function to decode JWT token and extract username
+def decode_token(token)
   begin
-    File.exist?(file_path) ? File.readlines(file_path).map(&:strip).reject(&:empty?) : []
+    decoded = JWT.decode(token, nil, false) # Dekode tanpa verifikasi
+    decoded[0]['username'] || 'Unknown'
   rescue StandardError => e
-    puts "ファイル data.txt が見つかりません！: #{e.message}".red
+    puts "Error dekode token: #{e.message}".red
+    'Unknown'
+  end
+end
+
+# Function to read tokens from data.txt
+def read_tokens
+  begin
+    tokens = File.exist?('data.txt') ? File.readlines('data.txt').map(&:strip).reject(&:empty?) : []
+    tokens.map { |token| token.downcase.start_with?('bearer ') ? token[7..-1].strip : token }
+  rescue StandardError => e
+    puts "Error: data.txt tidak ditemukan. Buat data.txt dengan daftar token.".red
     []
   end
 end
 
-def valid_jwt?(token)
-  # JWTは3つのセグメント（ヘッダー、ペイロード、署名）をピリオドで区切る
-  segments = token.split('.')
-  segments.length == 3 && segments.all? { |seg| seg.match?(/^[A-Za-z0-9\-_=]+$/) }
-end
-
-def decode_token(token)
+# Function to read proxies from proxy.txt (optional)
+def read_proxies
+  return [] unless File.exist?('proxy.txt')
   begin
-    # トークンから "Bearer " を削除し、余分なスペースや改行を削除
-    clean_token = token.sub(/^Bearer\s+/i, '').strip
-    # トークンが空、短すぎる、またはJWT形式でない場合をチェック
-    return "不明" if clean_token.empty? || clean_token.length < 10 || !valid_jwt?(clean_token)
-
-    # JWTデコード（署名検証なし）
-    decoded = JWT.decode(clean_token, nil, false, { algorithm: 'none' })
-    decoded[0]["username"] || "不明"
-  rescue JWT::DecodeError => e
-    puts "トークンのデコードエラー: #{e.message} (トークン: #{token})".red
-    "不明"
+    File.readlines('proxy.txt').map(&:strip).reject(&:empty?)
   rescue StandardError => e
-    puts "トークンの処理エラー: #{e.message} (トークン: #{token})".red
-    "不明"
+    puts "Error membaca proxy.txt: #{e.message}".red
+    []
   end
 end
 
-def make_withdrawal(token, username)
-  begin
-    # ヘッダーにトークンを追加
-    headers = HEADERS.merge({ "token" => token })
+# Function to parse and format proxy for HTTParty
+def format_proxy(proxy)
+  return nil if proxy.nil? || proxy.empty?
 
-    # POSTリクエストを送信
-    response = HTTParty.post(URL, headers: headers, body: PAYLOAD.to_json)
-    
-    # レスポンスボディをJSONとして解析
-    begin
-      response_json = JSON.parse(response.body)
-      success = response_json["success"] || false
-    rescue JSON::ParserError
-      # レスポンスが有効なJSONでない場合、失敗とみなす
-      success = false
+  # Tambahkan http:// jika tidak ada protokol
+  proxy = "http://#{proxy}" unless proxy.include?('://')
+
+  begin
+    uri = URI.parse(proxy)
+    unless uri.scheme && uri.host && uri.port
+      puts "Format proxy tidak valid: #{proxy}".red
+      return nil
     end
-    
-    if success
-      puts "[成功] アカウント #{username} の引き出しが成功しました！".green
-      return true
+
+    proxy_options = {
+      http_proxyaddr: uri.host,
+      http_proxyport: uri.port
+    }
+
+    # Tambahkan autentikasi jika ada
+    proxy_options[:http_proxyuser] = uri.user if uri.user
+    proxy_options[:http_proxypass] = uri.password if uri.password
+
+    puts "Parsed proxy: #{uri.host}:#{uri.port}#{uri.user ? " (user: #{uri.user})" : ''}".blue
+    proxy_options
+  rescue URI::InvalidURIError => e
+    puts "Error parsing proxy #{proxy}: #{e.message}".red
+    nil
+  end
+end
+
+# Function to make a POST request to /call endpoint
+def call_task(task_id, token, proxy = nil)
+  url = 'https://mpc-api.planx.io/api/v1/telegram/task/call'
+  headers = HEADERS.merge('token' => "Bearer #{token}")
+  payload = { taskId: task_id }
+  options = { headers: headers, body: payload.to_json, decompress: true }
+
+  # Terapkan proxy jika ada
+  options.merge!(proxy) if proxy
+
+  begin
+    response = HTTParty.post(url, options.merge(timeout: 10))
+    if response.code == 200 && response.parsed_response.is_a?(Hash) && response.parsed_response['success']
+      puts "Task #{TASKS[task_id]} berhasil".green
+      true
     else
-      puts "[失敗] アカウント #{username} の引き出しが失敗しました。".red
-      return false
+      puts "Task #{TASKS[task_id]} gagal".red
+      false
     end
   rescue StandardError => e
-    puts "[エラー] アカウント #{username} でエラーが発生しました: #{e.message}".red
-    return false
+    puts "Task #{TASKS[task_id]} gagal: #{e.message}".red
+    false
   end
 end
 
+# Function to make a POST request to /claim endpoint
+def claim_task(task_id, token, proxy = nil, task_list = TASKS)
+  url = 'https://mpc-api.planx.io/api/v1/telegram/task/claim'
+  headers = HEADERS.merge('token' => "Bearer #{token}")
+  payload = { taskId: task_id }
+  options = { headers: headers, body: payload.to_json, decompress: true }
+
+  # Terapkan proxy jika ada
+  options.merge!(proxy) if proxy
+
+  begin
+    response = HTTParty.post(url, options.merge(timeout: 10))
+    if response.code == 200 && response.parsed_response.is_a?(Hash) && response.parsed_response['success']
+      puts "Claim task #{task_list[task_id]} berhasil".green
+      true
+    else
+      puts "Claim task #{task_list[task_id]} gagal".red
+      false
+    end
+  rescue StandardError => e
+    puts "Claim task #{task_list[task_id]} gagal: #{e.message}".red
+    false
+  end
+end
+
+# Main execution
 def main
-  # バナーをライトシアンで表示
-  banner = <<-BANNER
-╔══════════════════════════════════════════════╗
-║       🌟 WITHDRAWAL BOT - Auto Withdraw      ║
-║   Automate your Telegram wallet withdrawals! ║
-║  Developed by: https://t.me/sentineldiscus   ║
-╚══════════════════════════════════════════════╝
-  BANNER
-  puts banner.light_cyan
+  iteration = 1
+  loop do
+    puts "\n--- Iterasi ke-#{iteration} dimulai ---".yellow
 
-  tokens = read_tokens("data.txt")
-  if tokens.empty?
-    puts "data.txt にトークンが見つかりませんでした。"
-    return
+    # Step 1: Read tokens from data.txt
+    tokens = read_tokens
+    if tokens.empty?
+      puts "Tidak ada token yang valid. Script berhenti.".red
+      return
+    end
+
+    # Step 2: Read proxies from proxy.txt (if exists)
+    proxies = read_proxies
+    if proxies.any?
+      puts "Ditemukan #{proxies.size} proxy.".blue
+    else
+      puts "Tidak ada proxy.txt, berjalan tanpa proxy.".blue
+    end
+
+    # Step 3: Process each account sequentially
+    tokens.each_with_index do |token, i|
+      # Decode token untuk mendapatkan username
+      username = decode_token(token)
+      puts "\nAkun #{username}: Memulai...".yellow
+
+      # Pilih proxy secara acak (jika ada)
+      proxy = proxies.any? ? format_proxy(proxies.sample) : nil
+      puts "Akun #{username}: Menggunakan proxy #{proxy[:http_proxyaddr]}:#{proxy[:http_proxyport]}" if proxy
+
+      if iteration == 1
+        # Iterasi pertama: Proses tugas dengan call (kecuali Daily Login & Lottery), lalu claim semua
+        puts "Akun #{username}: Memproses CALL tasks...".yellow
+        CALL_TASKS.each do |task_id, _|
+          call_task(task_id, token, proxy)
+          sleep 0
+        end
+
+        puts "Akun #{username}: Menunggu 15 detik sebelum CLAIM...".yellow
+        sleep 15
+
+        puts "Akun #{username}: Memproses CLAIM tasks...".yellow
+        TASKS.each do |task_id, _|
+          claim_task(task_id, token, proxy)
+          sleep 0
+        end
+      else
+        # Iterasi berikutnya: Hanya claim Daily Login dan Lottery
+        puts "Akun #{username}: Memproses CLAIM tasks (Daily Login & Lottery)...".yellow
+        CLAIM_ONLY_TASKS.each do |task_id, _|
+          claim_task(task_id, token, proxy, CLAIM_ONLY_TASKS)
+          sleep 5
+        end
+      end
+
+      # Delay before next account
+      if i < tokens.size - 1
+        puts "Akun #{username}: Selesai. Menunggu 30 detik sebelum akun berikutnya...".yellow
+        sleep 2
+      end
+    end
+
+    puts "\nIterasi ke-#{iteration} selesai. Menunggu 3 jam untuk iterasi berikutnya...".yellow
+    iteration += 1
+    sleep 10800
   end
-
-  success_count = 0
-  total_count = tokens.length
-
-  tokens.each do |token|
-    username = decode_token(token)
-    success_count += 1 if make_withdrawal(token, username)
-  end
-
-  puts "\n完了！成功: #{success_count}/#{total_count}"
 end
 
 main if __FILE__ == $PROGRAM_NAME
