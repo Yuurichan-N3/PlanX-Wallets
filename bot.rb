@@ -18,6 +18,9 @@ BANNER
 TASKS = {
   "m20250212173934013124700001" => "Daily Login",
   "m20250325174288367185100003" => "Lottery",
+  "m20250520174770655580300018" => "Play Valor Quest and Earn Rewards",
+  "m20250520174770687133400021" => "Explore Funton.ai TG Mini App and Earn Rewards",
+  "m20250520174770621353700015" => "Post Short Videos and Earn Like TikTok",
   "m20250516174736524661500009" => "Mine for free and win $300",
   "m20250515174730236703400006" => "Start Rolling - Play DiceSwap & Win TON",
   "m20250515174729364086600003" => "Launch TapCoinsBot",
@@ -222,8 +225,8 @@ def main
           sleep 5
         end
 
-        puts "Akun #{username}: Menunggu 155 detik sebelum CLAIM...".yellow
-        sleep 155
+        puts "Akun #{username}: Menunggu 25 detik sebelum CLAIM...".yellow
+        sleep 25
 
         puts "Akun #{username}: Memproses CLAIM tasks...".yellow
         TASKS.each do |task_id, _|
