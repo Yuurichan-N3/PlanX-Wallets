@@ -18,6 +18,7 @@ BANNER
 TASKS = {
   "m20250212173934013124700001" => "Daily Login",
   "m20250325174288367185100003" => "Lottery",
+  "m20250520174772991278700024" => "Play Merge Pals and Earn Rewards",
   "m20250520174770655580300018" => "Play Valor Quest and Earn Rewards",
   "m20250520174770687133400021" => "Explore Funton.ai TG Mini App and Earn Rewards",
   "m20250520174770621353700015" => "Post Short Videos and Earn Like TikTok",
