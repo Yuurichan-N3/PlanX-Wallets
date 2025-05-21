@@ -18,6 +18,11 @@ BANNER
 TASKS = {
   "m20250212173934013124700001" => "Daily Login",
   "m20250325174288367185100003" => "Lottery",
+  "m20250521174780862795300039" => "Earn TON for completing simple tasks",
+  "m20250521174779954000200036" => "Join RewardsHQ and win cash prizes",
+  "m20250521174779685918100032" => "Search BTC wallets with RootBTC",
+  "m20250521174779639447100029" => "Join TAPX & Earn Rewards",
+  "m20250521174779307171300025" => "Play & Earn Your $1000",
   "m20250520174772991278700024" => "Play Merge Pals and Earn Rewards",
   "m20250520174770655580300018" => "Play Valor Quest and Earn Rewards",
   "m20250520174770687133400021" => "Explore Funton.ai TG Mini App and Earn Rewards",
