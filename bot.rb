@@ -18,6 +18,7 @@ BANNER
 TASKS = {
   "m20250212173934013124700001" => "Daily Login",
   "m20250325174288367185100003" => "Lottery",
+  "m20250521174781856608400042" => "Earn 1.7% Daily with USDX in Xwallet!",
   "m20250521174780862795300039" => "Earn TON for completing simple tasks",
   "m20250521174779954000200036" => "Join RewardsHQ and win cash prizes",
   "m20250521174779685918100032" => "Search BTC wallets with RootBTC",
