@@ -4,8 +4,9 @@ require 'securerandom'
 require 'json'
 require 'uri'
 require 'jwt'
+require 'digest'
+require 'fileutils'
 
-# Banner
 puts <<~BANNER
 ╔══════════════════════════════════════════════╗
 ║       🌟 PlanX TaskBot - Automated Tasks     ║
@@ -14,7 +15,6 @@ puts <<~BANNER
 ╚══════════════════════════════════════════════╝
 BANNER
 
-# List of all task IDs and their descriptions
 TASKS = {
   "m20250212173934013124700001" => "Daily Login",
   "m20250325174288367185100003" => "Lottery",
@@ -53,16 +53,46 @@ TASKS = {
   "m20250213173941767785900027" => "Read the PlanX Medium article"
 }
 
-# Tasks to claim only (Daily Login and Lottery)
 CLAIM_ONLY_TASKS = {
   "m20250212173934013124700001" => "Daily Login",
   "m20250325174288367185100003" => "Lottery"
 }
 
-# Tasks to process with call and claim in first iteration
 CALL_TASKS = TASKS.reject { |k, _| CLAIM_ONLY_TASKS.key?(k) }
 
-# Headers for the API requests
+DEFAULT_USER_AGENTS_AND_PLATFORMS = [
+  {
+    user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+    platform: "Windows",
+    sec_ch_ua: '"Chromium";v="127", "Not.A/Brand";v="8"',
+    sec_ch_ua_mobile: "?0"
+  },
+  {
+    user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+    platform: "macOS",
+    sec_ch_ua: '"Chromium";v="127", "Not.A/Brand";v="8"',
+    sec_ch_ua_mobile: "?0"
+  },
+  {
+    user_agent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+    platform: "Linux",
+    sec_ch_ua: '"Chromium";v="127", "Not.A/Brand";v="8"',
+    sec_ch_ua_mobile: "?0"
+  },
+  {
+    user_agent: "Mozilla/5.0 (Linux; Android 14; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36",
+    platform: "Android",
+    sec_ch_ua: '"Chromium";v="127", "Not.A/Brand";v="8"',
+    sec_ch_ua_mobile: "?1"
+  },
+  {
+    user_agent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+    platform: "iOS",
+    sec_ch_ua: '"Safari";v="17", "Not.A/Brand";v="8"',
+    sec_ch_ua_mobile: "?1"
+  }
+]
+
 HEADERS = {
   'accept' => 'application/json, text/plain, */*',
   'accept-encoding' => 'gzip, deflate, br, zstd',
@@ -70,72 +100,114 @@ HEADERS = {
   'language' => 'id',
   'origin' => 'https://tg-wallet.planx.io',
   'referer' => 'https://tg-wallet.planx.io/',
-  'sec-ch-ua' => '"Microsoft Edge";v="135", "Chromium";v="135", "Not-A.Brand";v="8"',
-  'sec-ch-ua-mobile' => '?0',
-  'sec-ch-ua-platform' => '"Windows"',
   'sec-fetch-dest' => 'empty',
   'sec-fetch-mode' => 'cors',
-  'sec-fetch-site' => 'same-site',
-  'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0'
+  'sec-fetch-site' => 'same-site'
 }
 
-# Function to decode JWT token and extract username
+def generate_fp(token, user_agent)
+  timestamp = Time.now.to_i.to_s
+  screen_resolution = "1920x1080"
+  timezone = "Asia/Jakarta"
+  input = "#{token}:#{user_agent}:#{screen_resolution}:#{timezone}:#{timestamp}"
+  Digest::MD5.hexdigest(input)
+end
+
+def read_or_generate_fps(tokens, user_agents)
+  FileUtils.mkdir_p('HEADERS')
+  fp_file = 'HEADERS/fp.json'
+  fps = []
+  if File.exist?(fp_file)
+    begin
+      fps = JSON.parse(File.read(fp_file))
+    rescue StandardError => e
+      puts "Error reading #{fp_file}: #{e.message}".red
+    end
+  end
+  tokens.each_with_index do |token, i|
+    fps[i] ||= generate_fp(token, user_agents[i])
+  end
+  begin
+    File.write(fp_file, JSON.pretty_generate(fps))
+  rescue StandardError => e
+    puts "Error saving #{fp_file}: #{e.message}".red
+  end
+  fps
+end
+
+def read_or_generate_user_agents_and_platforms(token_count)
+  FileUtils.mkdir_p('HEADERS')
+  ua_file = 'HEADERS/useragent.json'
+  platform_file = 'HEADERS/platform.json'
+  user_agents = []
+  platforms = []
+  if File.exist?(ua_file) && File.exist?(platform_file)
+    begin
+      user_agents = JSON.parse(File.read(ua_file))
+      platforms = JSON.parse(File.read(platform_file))
+    rescue StandardError => e
+      puts "Error reading #{ua_file} or #{platform_file}: #{e.message}".red
+    end
+  end
+  while user_agents.size < token_count
+    pair = DEFAULT_USER_AGENTS_AND_PLATFORMS[user_agents.size % DEFAULT_USER_AGENTS_AND_PLATFORMS.size]
+    user_agents << pair[:user_agent]
+    platforms << pair[:platform]
+  end
+  begin
+    File.write(ua_file, JSON.pretty_generate(user_agents))
+    File.write(platform_file, JSON.pretty_generate(platforms))
+  rescue StandardError => e
+    puts "Error saving #{ua_file} or #{platform_file}: #{e.message}".red
+  end
+  [user_agents, platforms]
+end
+
 def decode_token(token)
   begin
-    decoded = JWT.decode(token, nil, false) # Dekode tanpa verifikasi
+    decoded = JWT.decode(token, nil, false)
     decoded[0]['username'] || 'Unknown'
   rescue StandardError => e
-    puts "Error dekode token: #{e.message}".red
+    puts "Error decoding token: #{e.message}".red
     'Unknown'
   end
 end
 
-# Function to read tokens from data.txt
 def read_tokens
   begin
     tokens = File.exist?('data.txt') ? File.readlines('data.txt').map(&:strip).reject(&:empty?) : []
     tokens.map { |token| token.downcase.start_with?('bearer ') ? token[7..-1].strip : token }
   rescue StandardError => e
-    puts "Error: data.txt tidak ditemukan. Buat data.txt dengan daftar token.".red
+    puts "Error: data.txt not found. Create data.txt with a list of tokens.".red
     []
   end
 end
 
-# Function to read proxies from proxy.txt (optional)
 def read_proxies
   return [] unless File.exist?('proxy.txt')
   begin
     File.readlines('proxy.txt').map(&:strip).reject(&:empty?)
   rescue StandardError => e
-    puts "Error membaca proxy.txt: #{e.message}".red
+    puts "Error reading proxy.txt: #{e.message}".red
     []
   end
 end
 
-# Function to parse and format proxy for HTTParty
 def format_proxy(proxy)
   return nil if proxy.nil? || proxy.empty?
-
-  # Tambahkan http:// jika tidak ada protokol
   proxy = "http://#{proxy}" unless proxy.include?('://')
-
   begin
     uri = URI.parse(proxy)
     unless uri.scheme && uri.host && uri.port
-      puts "Format proxy tidak valid: #{proxy}".red
+      puts "Invalid proxy format: #{proxy}".red
       return nil
     end
-
     proxy_options = {
       http_proxyaddr: uri.host,
       http_proxyport: uri.port
     }
-
-    # Tambahkan autentikasi jika ada
     proxy_options[:http_proxyuser] = uri.user if uri.user
     proxy_options[:http_proxypass] = uri.password if uri.password
-
-    puts "Parsed proxy: #{uri.host}:#{uri.port}#{uri.user ? " (user: #{uri.user})" : ''}".blue
     proxy_options
   rescue URI::InvalidURIError => e
     puts "Error parsing proxy #{proxy}: #{e.message}".red
@@ -143,120 +215,117 @@ def format_proxy(proxy)
   end
 end
 
-# Function to make a POST request to /call endpoint
-def call_task(task_id, token, proxy = nil)
+def call_task(task_id, token, fp, user_agent, platform, sec_ch_ua, sec_ch_ua_mobile, proxy = nil)
   url = 'https://mpc-api.planx.io/api/v1/telegram/task/call'
-  headers = HEADERS.merge('token' => "Bearer #{token}")
+  headers = HEADERS.merge(
+    'token' => "Bearer #{token}",
+    'fp' => fp,
+    'user-agent' => user_agent,
+    'sec-ch-ua-platform' => "\"#{platform}\"",
+    'sec-ch-ua' => sec_ch_ua,
+    'sec-ch-ua-mobile' => sec_ch_ua_mobile
+  )
   payload = { taskId: task_id }
   options = { headers: headers, body: payload.to_json, decompress: true }
-
-  # Terapkan proxy jika ada
   options.merge!(proxy) if proxy
-
   begin
     response = HTTParty.post(url, options.merge(timeout: 10))
     if response.code == 200 && response.parsed_response.is_a?(Hash) && response.parsed_response['success']
-      puts "Task #{TASKS[task_id]} berhasil".green
+      puts "Task #{TASKS[task_id]} succeeded".green
       true
     else
-      puts "Task #{TASKS[task_id]} gagal".red
+      puts "Task #{TASKS[task_id]} failed".red
       false
     end
   rescue StandardError => e
-    puts "Task #{TASKS[task_id]} gagal: #{e.message}".red
+    puts "Task #{TASKS[task_id]} failed: #{e.message}".red
     false
   end
 end
 
-# Function to make a POST request to /claim endpoint
-def claim_task(task_id, token, proxy = nil, task_list = TASKS)
+def claim_task(task_id, token, fp, user_agent, platform, sec_ch_ua, sec_ch_ua_mobile, proxy = nil, task_list = TASKS)
   url = 'https://mpc-api.planx.io/api/v1/telegram/task/claim'
-  headers = HEADERS.merge('token' => "Bearer #{token}")
+  headers = HEADERS.merge(
+    'token' => "Bearer #{token}",
+    'fp' => fp,
+    'user-agent' => user_agent,
+    'sec-ch-ua-platform' => "\"#{platform}\"",
+    'sec-ch-ua' => sec_ch_ua,
+    'sec-ch-ua-mobile' => sec_ch_ua_mobile
+  )
   payload = { taskId: task_id }
   options = { headers: headers, body: payload.to_json, decompress: true }
-
-  # Terapkan proxy jika ada
   options.merge!(proxy) if proxy
-
   begin
     response = HTTParty.post(url, options.merge(timeout: 10))
     if response.code == 200 && response.parsed_response.is_a?(Hash) && response.parsed_response['success']
-      puts "Claim task #{task_list[task_id]} berhasil".green
+      puts "Claim task #{task_list[task_id]} succeeded".green
       true
     else
-      puts "Claim task #{task_list[task_id]} gagal".red
+      puts "Claim task #{task_list[task_id]} failed".red
       false
     end
   rescue StandardError => e
-    puts "Claim task #{task_list[task_id]} gagal: #{e.message}".red
+    puts "Claim task #{task_list[task_id]} failed: #{e.message}".red
     false
   end
 end
 
-# Main execution
 def main
   iteration = 1
   loop do
-    puts "\n--- Iterasi ke-#{iteration} dimulai ---".yellow
-
-    # Step 1: Read tokens from data.txt
     tokens = read_tokens
     if tokens.empty?
-      puts "Tidak ada token yang valid. Script berhenti.".red
+      puts "No valid tokens found. Script stopped.".red
       return
     end
-
-    # Step 2: Read proxies from proxy.txt (if exists)
-    proxies = read_proxies
-    if proxies.any?
-      puts "Ditemukan #{proxies.size} proxy.".blue
-    else
-      puts "Tidak ada proxy.txt, berjalan tanpa proxy.".blue
+    user_agents, platforms = read_or_generate_user_agents_and_platforms(tokens.size)
+    if user_agents.size < tokens.size || platforms.size < tokens.size
+      puts "Insufficient user-agents or platforms for all tokens. Script stopped.".red
+      return
     end
-
-    # Step 3: Process each account sequentially
+    fps = read_or_generate_fps(tokens, user_agents)
+    if fps.size < tokens.size
+      puts "Insufficient FPs for all tokens. Script stopped.".red
+      return
+    end
+    proxies = read_proxies
     tokens.each_with_index do |token, i|
-      # Decode token untuk mendapatkan username
       username = decode_token(token)
-      puts "\nAkun #{username}: Memulai...".yellow
-
-      # Pilih proxy secara acak (jika ada)
+      puts "\nAccount #{username}: Starting...".yellow
+      fp = fps[i]
+      user_agent = user_agents[i]
+      platform = platforms[i]
+      puts "Account #{username}: Using FP #{fp}".blue
+      puts "Account #{username}: Using User-Agent #{user_agent}".blue
+      puts "Account #{username}: Using Platform #{platform}".blue
       proxy = proxies.any? ? format_proxy(proxies.sample) : nil
-      puts "Akun #{username}: Menggunakan proxy #{proxy[:http_proxyaddr]}:#{proxy[:http_proxyport]}" if proxy
-
+      puts "Account #{username}: Using proxy #{proxy[:http_proxyaddr]}:#{proxy[:http_proxyport]}" if proxy
       if iteration == 1
-        # Iterasi pertama: Proses tugas dengan call (kecuali Daily Login & Lottery), lalu claim semua
-        puts "Akun #{username}: Memproses CALL tasks...".yellow
+        puts "Account #{username}: Processing CALL tasks...".yellow
         CALL_TASKS.each do |task_id, _|
-          call_task(task_id, token, proxy)
-          sleep 5
+          call_task(task_id, token, fp, user_agent, platform, DEFAULT_USER_AGENTS_AND_PLATFORMS[i % DEFAULT_USER_AGENTS_AND_PLATFORMS.size][:sec_ch_ua], DEFAULT_USER_AGENTS_AND_PLATFORMS[i % DEFAULT_USER_AGENTS_AND_PLATFORMS.size][:sec_ch_ua_mobile], proxy)
+          sleep 0
         end
-
-        puts "Akun #{username}: Menunggu 25 detik sebelum CLAIM...".yellow
-        sleep 25
-
-        puts "Akun #{username}: Memproses CLAIM tasks...".yellow
+        puts "Account #{username}: Waiting 30 seconds before CLAIM...".yellow
+        sleep 30
+        puts "Account #{username}: Processing CLAIM tasks...".yellow
         TASKS.each do |task_id, _|
-          claim_task(task_id, token, proxy)
-          sleep 1
+          claim_task(task_id, token, fp, user_agent, platform, DEFAULT_USER_AGENTS_AND_PLATFORMS[i % DEFAULT_USER_AGENTS_AND_PLATFORMS.size][:sec_ch_ua], DEFAULT_USER_AGENTS_AND_PLATFORMS[i % DEFAULT_USER_AGENTS_AND_PLATFORMS.size][:sec_ch_ua_mobile], proxy)
+          sleep 0
         end
       else
-        # Iterasi berikutnya: Hanya claim Daily Login dan Lottery
-        puts "Akun #{username}: Memproses CLAIM tasks (Daily Login & Lottery)...".yellow
+        puts "Account #{username}: Processing CLAIM tasks (Daily Login & Lottery)...".yellow
         CLAIM_ONLY_TASKS.each do |task_id, _|
-          claim_task(task_id, token, proxy, CLAIM_ONLY_TASKS)
+          claim_task(task_id, token, fp, user_agent, platform, DEFAULT_USER_AGENTS_AND_PLATFORMS[i % DEFAULT_USER_AGENTS_AND_PLATFORMS.size][:sec_ch_ua], DEFAULT_USER_AGENTS_AND_PLATFORMS[i % DEFAULT_USER_AGENTS_AND_PLATFORMS.size][:sec_ch_ua_mobile], proxy, CLAIM_ONLY_TASKS)
           sleep 5
         end
       end
-
-      # Delay before next account
       if i < tokens.size - 1
-        puts "Akun #{username}: Selesai. Menunggu 30 detik sebelum akun berikutnya...".yellow
-        sleep 2
+        puts "Account #{username}: Done. Waiting 30 seconds before next account...".yellow
+        sleep 30
       end
     end
-
-    puts "\nIterasi ke-#{iteration} selesai. Menunggu 3 jam untuk iterasi berikutnya...".yellow
     iteration += 1
     sleep 10800
   end
