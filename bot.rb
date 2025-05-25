@@ -18,6 +18,7 @@ BANNER
 TASKS = {
   "m20250212173934013124700001" => "Daily Login",
   "m20250325174288367185100003" => "Lottery",
+  "m20250522174789949352000045" => "I am not a robot",
   "m20250521174781856608400042" => "Earn 1.7% Daily with USDX in Xwallet!",
   "m20250521174780862795300039" => "Earn TON for completing simple tasks",
   "m20250521174779954000200036" => "Join RewardsHQ and win cash prizes",
@@ -63,47 +64,36 @@ CALL_TASKS = TASKS.reject { |k, _| CLAIM_ONLY_TASKS.key?(k) }
 DEFAULT_USER_AGENTS_AND_PLATFORMS = [
   {
     user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-    platform: "Windows",
-    sec_ch_ua: '"Chromium";v="127", "Not.A/Brand";v="8"',
-    sec_ch_ua_mobile: "?0"
+    platform: "Windows"
   },
   {
     user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-    platform: "macOS",
-    sec_ch_ua: '"Chromium";v="127", "Not.A/Brand";v="8"',
-    sec_ch_ua_mobile: "?0"
+    platform: "macOS"
   },
   {
     user_agent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-    platform: "Linux",
-    sec_ch_ua: '"Chromium";v="127", "Not.A/Brand";v="8"',
-    sec_ch_ua_mobile: "?0"
+    platform: "Linux"
   },
   {
     user_agent: "Mozilla/5.0 (Linux; Android 14; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36",
-    platform: "Android",
-    sec_ch_ua: '"Chromium";v="127", "Not.A/Brand";v="8"',
-    sec_ch_ua_mobile: "?1"
+    platform: "Android"
   },
   {
     user_agent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
-    platform: "iOS",
-    sec_ch_ua: '"Safari";v="17", "Not.A/Brand";v="8"',
-    sec_ch_ua_mobile: "?1"
+    platform: "iOS"
   }
 ]
 
 HEADERS = {
   'accept' => 'application/json, text/plain, */*',
-  'accept-encoding' => 'gzip, deflate, br, zstd',
+  'accept-encoding' => 'identity',
   'content-type' => 'application/json',
   'language' => 'id',
   'origin' => 'https://tg-wallet.planx.io',
-  'referer' => 'https://tg-wallet.planx.io/',
-  'sec-fetch-dest' => 'empty',
-  'sec-fetch-mode' => 'cors',
-  'sec-fetch-site' => 'same-site'
+  'referer' => 'https://tg-wallet.planx.io/'
 }
+
+USE_PROXY = false
 
 def generate_fp(token, user_agent)
   timestamp = Time.now.to_i.to_s
@@ -176,15 +166,23 @@ end
 def read_tokens
   begin
     tokens = File.exist?('data.txt') ? File.readlines('data.txt').map(&:strip).reject(&:empty?) : []
-    tokens.map { |token| token.downcase.start_with?('bearer ') ? token[7..-1].strip : token }
+    tokens.map do |token|
+      token = token[7..-1].strip if token.downcase.start_with?('bearer ')
+      if token.empty?
+        puts "Empty token detected".red
+        nil
+      else
+        token
+      end
+    end.compact
   rescue StandardError => e
-    puts "Error: data.txt not found. Create data.txt with a list of tokens.".red
+    puts "Error: data.txt not found or unreadable: #{e.message}".red
     []
   end
 end
 
 def read_proxies
-  return [] unless File.exist?('proxy.txt')
+  return [] unless USE_PROXY && File.exist?('proxy.txt')
   begin
     File.readlines('proxy.txt').map(&:strip).reject(&:empty?)
   rescue StandardError => e
@@ -215,26 +213,60 @@ def format_proxy(proxy)
   end
 end
 
-def call_task(task_id, token, fp, user_agent, platform, sec_ch_ua, sec_ch_ua_mobile, proxy = nil)
+def check_task_status(token, fp, user_agent, platform, proxy = nil)
+  url = 'https://mpc-api.planx.io/api/v1/telegram/task/list'
+  headers = HEADERS.merge(
+    'token' => "Bearer #{token}",
+    'fp' => fp,
+    'user-agent' => user_agent
+  )
+  options = { headers: headers }
+  options.merge!(proxy) if proxy
+  begin
+    response = HTTParty.get(url, options.merge(timeout: 10))
+    parsed_response = JSON.parse(response.body) rescue nil
+    if response.code == 200 && parsed_response && parsed_response['success']
+      parsed_response['data'] || []
+    else
+      puts "Failed to fetch task status".red
+      []
+    end
+  rescue StandardError => e
+    puts "Failed to fetch task status: #{e.message}".red
+    []
+  end
+end
+
+def call_task(task_id, token, fp, user_agent, platform, proxy = nil)
   url = 'https://mpc-api.planx.io/api/v1/telegram/task/call'
   headers = HEADERS.merge(
     'token' => "Bearer #{token}",
     'fp' => fp,
-    'user-agent' => user_agent,
-    'sec-ch-ua-platform' => "\"#{platform}\"",
-    'sec-ch-ua' => sec_ch_ua,
-    'sec-ch-ua-mobile' => sec_ch_ua_mobile
+    'user-agent' => user_agent
   )
   payload = { taskId: task_id }
-  options = { headers: headers, body: payload.to_json, decompress: true }
+  options = { headers: headers, body: payload.to_json }
   options.merge!(proxy) if proxy
   begin
     response = HTTParty.post(url, options.merge(timeout: 10))
-    if response.code == 200 && response.parsed_response.is_a?(Hash) && response.parsed_response['success']
+    parsed_response = JSON.parse(response.body) rescue nil
+    if response.code == 200 && parsed_response && parsed_response['success']
       puts "Task #{TASKS[task_id]} succeeded".green
       true
+    elsif response.code == 200 && parsed_response && parsed_response['msg'] == 'Frequent access, please try again later'
+      puts "Task #{TASKS[task_id]} rate limited. Waiting 15 seconds...".yellow
+      sleep 15
+      false
+    elsif response.code == 406 || (parsed_response && parsed_response['code'] == 406)
+      puts "Task #{TASKS[task_id]} already completed".blue
+      true
     else
-      puts "Task #{TASKS[task_id]} failed".red
+      error_message = parsed_response&.[]('msg')
+      if error_message && !error_message.empty?
+        puts "Task #{TASKS[task_id]} failed: #{error_message}".red
+      else
+        puts "Task #{TASKS[task_id]} failed".red
+      end
       false
     end
   rescue StandardError => e
@@ -243,26 +275,36 @@ def call_task(task_id, token, fp, user_agent, platform, sec_ch_ua, sec_ch_ua_mob
   end
 end
 
-def claim_task(task_id, token, fp, user_agent, platform, sec_ch_ua, sec_ch_ua_mobile, proxy = nil, task_list = TASKS)
+def claim_task(task_id, token, fp, user_agent, platform, proxy = nil, task_list = TASKS)
   url = 'https://mpc-api.planx.io/api/v1/telegram/task/claim'
   headers = HEADERS.merge(
     'token' => "Bearer #{token}",
     'fp' => fp,
-    'user-agent' => user_agent,
-    'sec-ch-ua-platform' => "\"#{platform}\"",
-    'sec-ch-ua' => sec_ch_ua,
-    'sec-ch-ua-mobile' => sec_ch_ua_mobile
+    'user-agent' => user_agent
   )
   payload = { taskId: task_id }
-  options = { headers: headers, body: payload.to_json, decompress: true }
+  options = { headers: headers, body: payload.to_json }
   options.merge!(proxy) if proxy
   begin
     response = HTTParty.post(url, options.merge(timeout: 10))
-    if response.code == 200 && response.parsed_response.is_a?(Hash) && response.parsed_response['success']
+    parsed_response = JSON.parse(response.body) rescue nil
+    if response.code == 200 && parsed_response && parsed_response['success']
       puts "Claim task #{task_list[task_id]} succeeded".green
       true
+    elsif response.code == 200 && parsed_response && parsed_response['msg'] == 'Frequent access, please try again later'
+      puts "Claim task #{task_list[task_id]} rate limited. Waiting 15 seconds...".yellow
+      sleep 15
+      false
+    elsif response.code == 406 || (parsed_response && parsed_response['code'] == 406)
+      puts "Task #{task_list[task_id]} already claimed".blue
+      true
     else
-      puts "Claim task #{task_list[task_id]} failed".red
+      error_message = parsed_response&.[]('msg')
+      if error_message && !error_message.empty?
+        puts "Claim task #{task_list[task_id]} failed: #{error_message}".red
+      else
+        puts "Claim task #{task_list[task_id]} failed".red
+      end
       false
     end
   rescue StandardError => e
@@ -272,6 +314,7 @@ def claim_task(task_id, token, fp, user_agent, platform, sec_ch_ua, sec_ch_ua_mo
 end
 
 def main
+  puts "Starting PlanX TaskBot...".yellow
   iteration = 1
   loop do
     tokens = read_tokens
@@ -296,37 +339,55 @@ def main
       fp = fps[i]
       user_agent = user_agents[i]
       platform = platforms[i]
+      proxy = proxies.any? ? format_proxy(proxies.sample) : nil
       puts "Account #{username}: Using FP #{fp}".blue
       puts "Account #{username}: Using User-Agent #{user_agent}".blue
       puts "Account #{username}: Using Platform #{platform}".blue
-      proxy = proxies.any? ? format_proxy(proxies.sample) : nil
       puts "Account #{username}: Using proxy #{proxy[:http_proxyaddr]}:#{proxy[:http_proxyport]}" if proxy
+      puts "Account #{username}: Checking task status...".yellow
+      task_statuses = check_task_status(token, fp, user_agent, platform, proxy)
       if iteration == 1
         puts "Account #{username}: Processing CALL tasks...".yellow
         CALL_TASKS.each do |task_id, _|
-          call_task(task_id, token, fp, user_agent, platform, DEFAULT_USER_AGENTS_AND_PLATFORMS[i % DEFAULT_USER_AGENTS_AND_PLATFORMS.size][:sec_ch_ua], DEFAULT_USER_AGENTS_AND_PLATFORMS[i % DEFAULT_USER_AGENTS_AND_PLATFORMS.size][:sec_ch_ua_mobile], proxy)
+          task_status = task_statuses.find { |t| t['taskId'] == task_id }
+          if task_status && task_status['completed']
+            puts "Task #{TASKS[task_id]} already completed, skipping call".blue
+            next
+          end
+          call_task(task_id, token, fp, user_agent, platform, proxy)
           sleep 0
         end
         puts "Account #{username}: Waiting 30 seconds before CLAIM...".yellow
         sleep 30
         puts "Account #{username}: Processing CLAIM tasks...".yellow
         TASKS.each do |task_id, _|
-          claim_task(task_id, token, fp, user_agent, platform, DEFAULT_USER_AGENTS_AND_PLATFORMS[i % DEFAULT_USER_AGENTS_AND_PLATFORMS.size][:sec_ch_ua], DEFAULT_USER_AGENTS_AND_PLATFORMS[i % DEFAULT_USER_AGENTS_AND_PLATFORMS.size][:sec_ch_ua_mobile], proxy)
+          task_status = task_statuses.find { |t| t['taskId'] == task_id }
+          if task_status && task_status['claimed']
+            puts "Task #{TASKS[task_id]} already claimed, skipping claim".blue
+            next
+          end
+          claim_task(task_id, token, fp, user_agent, platform, proxy)
           sleep 0
         end
       else
         puts "Account #{username}: Processing CLAIM tasks (Daily Login & Lottery)...".yellow
         CLAIM_ONLY_TASKS.each do |task_id, _|
-          claim_task(task_id, token, fp, user_agent, platform, DEFAULT_USER_AGENTS_AND_PLATFORMS[i % DEFAULT_USER_AGENTS_AND_PLATFORMS.size][:sec_ch_ua], DEFAULT_USER_AGENTS_AND_PLATFORMS[i % DEFAULT_USER_AGENTS_AND_PLATFORMS.size][:sec_ch_ua_mobile], proxy, CLAIM_ONLY_TASKS)
+          task_status = task_statuses.find { |t| t['taskId'] == task_id }
+          if task_status && task_status['claimed']
+            puts "Task #{CLAIM_ONLY_TASKS[task_id]} already claimed, skipping claim".blue
+            next
+          end
+          claim_task(task_id, token, fp, user_agent, platform, proxy, CLAIM_ONLY_TASKS)
           sleep 5
         end
       end
       if i < tokens.size - 1
-        puts "Account #{username}: Done. Waiting 30 seconds before next account...".yellow
-        sleep 30
+        puts "Account #{username}: Done. Waiting 3 seconds before next account...".yellow
+        sleep 3
       end
     end
     iteration += 1
+    puts "All accounts processed. Waiting 3 hours before next iteration...".yellow
     sleep 10800
   end
 end
